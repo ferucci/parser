@@ -1,0 +1,23 @@
+{
+  "name": "parcer",
+  "version": "1.0.0",
+  "description": "Advanced web parser with MVC architecture",
+  "type": "module",
+  "main": "main.js",
+  "scripts": {
+    "start": "node main.js",
+    "dev": "node --watch main.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^1.12.2",
+    "cheerio": "^1.1.2",
+    "fs-extra": "^11.3.2",
+    "node": "^20.18.1",
+    "node-cron": "^4.2.1",
+    "puppeteer": "^24.22.3",
+    "valid-url": "^1.0.9",
+    "winston": "^3.18.3"
+  }
+}
