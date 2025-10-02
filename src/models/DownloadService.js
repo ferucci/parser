@@ -19,7 +19,12 @@ export class DownloadService {
    * @returns {Promise<void>}
    */
   async downloadFile(url, filePath) {
-    return new Promise((resolve, reject) => {
+    // AbortController для управления прерыванием операции
+    // современный API для отмены асинхронных операций
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
+
+    try {
       const protocol = url.startsWith('https') ? https : http;
 
       // Создаем директорию если не существует
@@ -28,38 +33,47 @@ export class DownloadService {
         fs.mkdirSync(dir, { recursive: true });
       }
 
+      const response = await new Promise((resolve, reject) => {
+        const req = protocol.get(url, { signal: controller.signal }, resolve);
+        req.on('error', reject);
+      });
+
+      if (response.statusCode !== 200) {
+        throw new Error(`Не удалось скачать файл. Код статуса: ${response.statusCode}`);
+      }
+
       const file = fs.createWriteStream(filePath);
 
-      protocol.get(url, (response) => {
-        // Проверяем статус код
-        if (response.statusCode !== 200) {
-          reject(new Error(`Не удалось скачать файл. Код статуса: ${response.statusCode}`));
-          return;
-        }
-
+      return new Promise((resolve, reject) => {
         response.pipe(file);
 
         file.on('finish', () => {
           file.close();
+          clearTimeout(timeout);
           resolve();
         });
 
-      }).on('error', (err) => {
-        this.cleanupFile(filePath);
-        reject(new Error(`Ошибка сети: ${err.message}`));
+        file.on('error', (err) => {
+          this.cleanupFile(filePath);
+          clearTimeout(timeout);
+          reject(new Error(`Ошибка записи файла: ${err.message}`));
+        });
+
+        response.on('error', (err) => {
+          this.cleanupFile(filePath);
+          clearTimeout(timeout);
+          reject(new Error(`Ошибка сети: ${err.message}`));
+        });
       });
 
-      file.on('error', (err) => {
-        this.cleanupFile(filePath);
-        reject(new Error(`Ошибка записи файла: ${err.message}`));
-      });
-
-      // Таймаут 30 секунд
-      response.setTimeout(30000, () => {
-        this.cleanupFile(filePath);
-        reject(new Error('Таймаут загрузки'));
-      });
-    });
+    } catch (err) {
+      this.cleanupFile(filePath);
+      clearTimeout(timeout);
+      if (err.name === 'AbortError') {
+        throw new Error('Таймаут загрузки');
+      }
+      throw err;
+    }
   }
 
   /**
