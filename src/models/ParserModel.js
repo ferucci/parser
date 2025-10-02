@@ -39,6 +39,7 @@ export class ParserModel {
       title: this.extractTitle($),
       scripts: this.extractScripts($, baseUrl),
       styles: this.extractStyles($, baseUrl),
+      images: this.extractImages($, baseUrl),
       htmlLength: html.length,
       fullHTML: html // Опционально - для отладки
     };
@@ -115,6 +116,39 @@ export class ParserModel {
   }
 
   /**
+ * Извлекает информацию об изображениях
+ */
+  extractImages($, baseUrl) {
+    const images = [];
+
+    $('img').each((index, element) => {
+      const img = $(element);
+      const src = img.attr('src');
+      const srcset = img.attr('srcset');
+
+      const imageData = {
+        index: index + 1,
+        src: src,
+        srcset: srcset,
+        alt: img.attr('alt') || '',
+        title: img.attr('title') || '',
+        width: img.attr('width'),
+        height: img.attr('height'),
+        loading: img.attr('loading') || 'eager',
+        isExternal: !!src && this.isDownloadableUrl(src)
+      };
+
+      if (src) {
+        imageData.fullUrl = this.resolveUrl(src, baseUrl);
+      }
+
+      images.push(imageData);
+    });
+
+    return images;
+  }
+
+  /**
    * Преобразует относительный URL в абсолютный
    */
   resolveUrl(url, baseUrl) {
@@ -123,6 +157,17 @@ export class ParserModel {
     } catch (error) {
       return url; // Возвращаем оригинальный URL если преобразование невозможно
     }
+  }
+
+  /**
+ * Проверяет, можно ли скачать файл по URL
+ * В ProjectBuilder есть такой же, объединить
+ */
+  isDownloadableUrl(url) {
+    return url &&
+      !url.startsWith('data:') &&
+      !url.startsWith('blob:') &&
+      (url.startsWith('http://') || url.startsWith('https://'));
   }
 
   /**
@@ -136,6 +181,7 @@ export class ParserModel {
       externalScripts: data.externalScriptsCount,
       styles: data.stylesCount,
       externalStyles: data.externalStylesCount,
+      images: data.imagesCount,
       htmlLength: data.htmlLength,
       timestamp: data.timestamp
     };

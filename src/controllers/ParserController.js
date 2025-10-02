@@ -95,7 +95,8 @@ export class ParserController extends EventEmitter {
         inlineScriptsCount: parsedData.scripts.filter(s => !s.isExternal && s.hasContent).length,
         stylesCount: parsedData.styles.length,
         externalStylesCount: parsedData.styles.filter(s => s.isExternal).length,
-        inlineStylesCount: parsedData.styles.filter(s => !s.isExternal && s.hasContent).length
+        inlineStylesCount: parsedData.styles.filter(s => !s.isExternal && s.hasContent).length,
+        imagesCount: parsedData.images.length
       };
 
       // Сохраняем результат

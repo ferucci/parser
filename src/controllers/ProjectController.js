@@ -54,6 +54,11 @@ export class ProjectController {
       const styleResults = await this.projectBuilder.downloadStyles(data.styles);
       this.projectView.displayDownloadResults('стилей', styleResults);
 
+      // Скачиваем изображения
+      this.projectView.displayDownloadStart('изображений');
+      const imageResults = await this.projectBuilder.downloadImages(data.images);
+      this.projectView.displayDownloadResults('изображений', imageResults);
+
       // Генерируем отчет
       const report = this.projectBuilder.generateReport();
       this.projectView.displayFinalReport(report);
@@ -93,6 +98,7 @@ export class ProjectController {
       // Скачиваем ресурсы
       const scriptResults = await this.projectBuilder.downloadScripts(parsedData.scripts);
       const styleResults = await this.projectBuilder.downloadStyles(parsedData.styles);
+      const imageResults = await this.projectBuilder.downloadImages(parsedData.images);
 
       const report = this.projectBuilder.generateReport();
       this.projectView.displayFinalReport(report);

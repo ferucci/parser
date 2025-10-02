@@ -18,6 +18,7 @@ export class ProjectBuilder {
     this.stats = {
       scriptsDownloaded: 0,
       stylesDownloaded: 0,
+      imagesDownloaded: 0,
       errors: 0
     };
   }
@@ -125,6 +126,61 @@ export class ProjectBuilder {
   }
 
   /**
+ * Скачивает и сохраняет изображения
+ */
+  async downloadImages(images) {
+    const results = [];
+
+    for (const image of images) {
+      if (image.fullUrl && this.isDownloadableUrl(image.fullUrl)) {
+        try {
+          const fileName = this.generateImageFilename(image);
+          const filePath = path.join(this.projectPath, 'images', fileName);
+
+          await this.downloadService.downloadFile(image.fullUrl, filePath);
+
+          results.push({
+            originalUrl: image.fullUrl,
+            localPath: path.join('images', fileName),
+            alt: image.alt,
+            success: true
+          });
+
+          this.stats.imagesDownloaded++;
+
+        } catch (error) {
+          results.push({
+            originalUrl: image.fullUrl,
+            error: error.message,
+            success: false
+          });
+          this.stats.errors++;
+        }
+      }
+    }
+
+    return results;
+  }
+
+  /**
+ * Генерирует имя файла для изображения
+ */
+  generateImageFilename(image) {
+    if (image.src) {
+      const urlParts = image.src.split('/');
+      let originalName = urlParts[urlParts.length - 1];
+
+      // Если в имени файла нет расширения, добавляем .jpg по умолчанию
+      if (originalName && !originalName.includes('.')) {
+        originalName += '.jpg';
+      }
+
+      return originalName || `image_${image.index}.jpg`;
+    }
+    return `image_${image.index}.jpg`;
+  }
+
+  /**
    * Генерирует имя файла для скрипта
    */
   generateScriptFilename(script) {
@@ -176,6 +232,7 @@ export class ProjectBuilder {
     this.stats = {
       scriptsDownloaded: 0,
       stylesDownloaded: 0,
+      imagesDownloaded: 0,
       errors: 0
     };
   }

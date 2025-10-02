@@ -25,6 +25,7 @@ export class DownloadService {
     const timeout = setTimeout(() => controller.abort(), 15000);
 
     try {
+      // Выбираем протокол (HTTP или HTTPS) в зависимости от URL
       const protocol = url.startsWith('https') ? https : http;
 
       // Создаем директорию если не существует
@@ -33,8 +34,11 @@ export class DownloadService {
         fs.mkdirSync(dir, { recursive: true });
       }
 
+      // Ожидаем получение ответа от сервера
       const response = await new Promise((resolve, reject) => {
+        // Отправляем GET запрос с возможностью отмены через signal
         const req = protocol.get(url, { signal: controller.signal }, resolve);
+        // Если произошла ошибка запроса - отклоняем промис
         req.on('error', reject);
       });
 
@@ -42,23 +46,30 @@ export class DownloadService {
         throw new Error(`Не удалось скачать файл. Код статуса: ${response.statusCode}`);
       }
 
+      // Создаем поток для записи файла на диск
       const file = fs.createWriteStream(filePath);
 
       return new Promise((resolve, reject) => {
+        // Направляем данные из ответа сервера в файл
+        // Это эффективно для больших файлов - данные не загружаются в память целиком
         response.pipe(file);
 
+        // Событие 'finish' вызывается когда все данные записаны на диск
         file.on('finish', () => {
-          file.close();
+          file.close();  // Закрываем файловый поток
           clearTimeout(timeout);
-          resolve();
+          resolve();  // Успешное завершение загрузки
         });
 
+
+        // Обработка ошибок записи файла
         file.on('error', (err) => {
-          this.cleanupFile(filePath);
+          this.cleanupFile(filePath);  // Удаляем частично скачанный файл
           clearTimeout(timeout);
           reject(new Error(`Ошибка записи файла: ${err.message}`));
         });
 
+        // Обработка ошибок при чтении данных из ответа
         response.on('error', (err) => {
           this.cleanupFile(filePath);
           clearTimeout(timeout);

@@ -57,6 +57,7 @@ export class ProjectView {
     console.log(`📁 Путь к проекту: ${report.projectPath}`);
     console.log(`📦 Скачано скриптов: ${report.stats.scriptsDownloaded}`);
     console.log(`🎨 Скачано стилей: ${report.stats.stylesDownloaded}`);
+    console.log(`🖼️  Скачано изображений: ${report.stats.imagesDownloaded}`);
     console.log(`❌ Ошибок: ${report.stats.errors}`);
     console.log(`⏰ Время: ${new Date(report.timestamp).toLocaleString()}`);
     console.log('═'.repeat(50));
