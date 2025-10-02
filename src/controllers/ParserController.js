@@ -152,6 +152,22 @@ export class ParserController extends EventEmitter {
       currentlyProcessing: this.queueModel.processing
     };
   }
+
+  // Добавляем метод для получения данных
+  getParsedData() {
+    return this.queueModel.getResults();
+  }
+
+  // Добавляем метод для быстрой сборки проекта после парсинга
+  async buildProjectAfterParsing(projectName = 'project') {
+    const results = this.getParsedData();
+    if (results.length === 0) {
+      throw new Error('Нет данных для сборки проекта');
+    }
+
+    const projectController = new ProjectController();
+    return await projectController.buildProjectFromData(results[0], projectName);
+  }
 }
 
 export default ParserController;

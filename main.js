@@ -8,7 +8,6 @@ import { ParserController } from './src/controllers/ParserController.js';
 async function main() {
   console.log('🚀 Запуск парсера с архитектурой MVC (ES Modules)...\n');
 
-  // Создаем контроллер с настройками из конфига
   const parser = new ParserController({
     delay: config.parser.delay,
     concurrent: config.parser.concurrent
@@ -31,9 +30,8 @@ async function main() {
   });
 
   // Добавляем URL в очередь
-  parser.addToQueue('https://usoltev.ru');
+  parser.addToQueue('https://usoltev.ru/');
   // parser.addToQueue('https://github.com');
-  // Можно добавить больше URL...
 
   // Запускаем обработку очереди
   await parser.processQueue();

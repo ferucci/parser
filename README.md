@@ -1,20 +1,3 @@
-┌─────────────────────────────────────────────────────────────┐
-│                      MVC Architecture                        │
-├─────────────────┬─────────────────┬─────────────────────────┤
-│     CONTROLLER  │      MODEL      │          VIEW           │
-│                 │                 │                         │
-│  ParserController │  ParserModel   │  ConsoleView           │
-│  - processQueue   │  - fetchPage   │  - displayData         │
-│  - addToQueue     │  - parseHTML   │  - displaySummary      │
-│  - handleEvents   │  - saveData    │  - displayError        │
-│                 │                 │                         │
-│  QueueManager   │  FileService    │  EventView             │
-│  - manageQueue   │  - saveJSON    │  - formatEvent         │
-│  - controlFlow   │  - readJSON    │  - formatStats         │
-│                 │                 │                         │
-├─────────────────┴─────────────────┴─────────────────────────┤
-│                    EventEmitter (Bridge)                    │
-└─────────────────────────────────────────────────────────────┘
 
 # Документация
 
@@ -70,3 +53,57 @@ ConsoleView:
  - Парсинг: fetchPage() → parseHTML() → извлечение данных
  - Отображение: События → ConsoleView
  - Сохранение: saveResults() → FileServic
+
+
+# Project Builder
+Назначение:
+ - Автоматическое создание локальной копии веб-страницы
+ - Скачивание всех внешних ресурсов (CSS, JS)
+ - Сохранение структуры проекта для оффлайн-анализа или разработки
+
+# Расположение кода и ответственность
+Модели (/src/models/)
+- ProjectBuilder.js - Основная бизнес-логика сборки проекта
+ - Создание структуры папок
+ - Управление файлами проекта
+ - Координация процессов
+
+- DownloadService.js - Специализированный сервис загрузки
+ - HTTP/HTTPS запросы
+ - Обработка ошибок сети
+ - Таймауты и повторные попытки
+
+Контроллеры (/src/controllers/)
+- ProjectController.js - Координация процессов сборки
+ - Взаимодействие между моделями
+ - Обработка пользовательского ввода
+ - Управление потоком выполнения
+
+Представления (/src/views/)
+- ProjectView.js - Отображение прогресса сборки
+ - Форматирование вывода
+ - Цветовые схемы и эмодзи
+ - Статистика и отчеты
+
+
+# Поток данных при сборке проекта
+
+parsing-results.json 
+    → ProjectController 
+    → ProjectBuilder 
+    → DownloadService
+    → Файловая система
+
+- Использование
+
+1. Автономная сборка проекта
+<const projectController = new ProjectController();
+await projectController.buildProjectFromResults('parsing-results.json', 'my-project');
+
+2. Сборка сразу после парсинга
+<const parser = new ParserController();
+await parser.processQueue();
+await parser.buildProjectAfterParsing('my-website');
+
+3. Через командную строку
+<npm run build-project -- my-app

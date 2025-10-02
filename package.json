@@ -6,7 +6,9 @@
   "main": "main.js",
   "scripts": {
     "start": "node main.js",
-    "dev": "node --watch main.js"
+    "dev": "node --watch main.js",
+    "build-project": "node build-project.js",
+    "parse-and-build": "node main.js && node build-project.js"
   },
   "author": "",
   "license": "ISC",
