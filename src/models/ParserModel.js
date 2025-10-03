@@ -40,8 +40,9 @@ export class ParserModel {
       scripts: this.extractScripts($, baseUrl),
       styles: this.extractStyles($, baseUrl),
       images: this.extractImages($, baseUrl),
+      links: this.extractLinks($, baseUrl),
       htmlLength: html.length,
-      fullHTML: html // Опционально - для отладки
+      fullHTML: html
     };
   }
 
@@ -50,6 +51,54 @@ export class ParserModel {
    */
   extractTitle($) {
     return $('title').text().trim() || 'No title';
+  }
+
+  /**
+ * 🆕 Извлекает ссылки на другие ресурсы (шрифты, иконки, медиа)
+ */
+  extractLinks($, baseUrl) {
+    const links = [];
+
+    // Шрифты
+    $('link[rel*="icon"], link[rel*="apple"], link[rel*="manifest"]').each((index, element) => {
+      const link = $(element);
+      const href = link.attr('href');
+
+      if (href) {
+        const linkData = {
+          index: links.length + 1,
+          type: 'link',
+          rel: link.attr('rel'),
+          href: href,
+          fullUrl: this.resolveUrl(href, baseUrl),
+          isExternal: !!href
+        };
+
+        links.push(linkData);
+      }
+    });
+
+    // Ресурсы в CSS (будет обработано позже)
+    $('link[rel="preload"], link[as="font"], link[as="image"]').each((index, element) => {
+      const link = $(element);
+      const href = link.attr('href');
+
+      if (href) {
+        const linkData = {
+          index: links.length + 1,
+          type: 'resource',
+          rel: link.attr('rel'),
+          as: link.attr('as'),
+          href: href,
+          fullUrl: this.resolveUrl(href, baseUrl),
+          isExternal: !!href
+        };
+
+        links.push(linkData);
+      }
+    });
+
+    return links;
   }
 
   /**

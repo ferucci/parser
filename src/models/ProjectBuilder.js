@@ -11,15 +11,24 @@ const __dirname = path.dirname(__filename);
  * Отвечает за создание структуры папок и управление файлами
  */
 export class ProjectBuilder {
-  constructor(projectName = 'project') {
+  constructor(projectName = 'project', options = {}) {
     this.projectName = projectName;
     this.projectPath = path.join(process.cwd(), projectName);
-    this.downloadService = new DownloadService();
+
+    // Настройки безопасности загрузки
+    this.downloadService = new DownloadService({
+      maxFileSize: options.maxFileSize || 10 * 1024 * 1024, // 10MB
+      allowedExtensions: options.allowedExtensions,
+      blockedPatterns: options.blockedPatterns
+    });
+
     this.stats = {
       scriptsDownloaded: 0,
       stylesDownloaded: 0,
       imagesDownloaded: 0,
-      errors: 0
+      otherFilesDownloaded: 0,
+      errors: 0,
+      securityBlocks: 0
     };
   }
 
@@ -32,7 +41,9 @@ export class ProjectBuilder {
       path.join(this.projectPath, 'js'),
       path.join(this.projectPath, 'css'),
       path.join(this.projectPath, 'images'),
-      path.join(this.projectPath, 'fonts')
+      path.join(this.projectPath, 'fonts'),
+      path.join(this.projectPath, 'media'),
+      path.join(this.projectPath, 'data')
     ];
 
     directories.forEach(dir => {
@@ -54,36 +65,66 @@ export class ProjectBuilder {
   }
 
   /**
+   * Универсальный метод для скачивания файлов с проверкой безопасности
+   */
+  async downloadResource(resource, targetFolder, fileType = 'file') {
+    if (!resource.fullUrl || !this.isDownloadableUrl(resource.fullUrl)) {
+      return {
+        success: false,
+        error: 'Некорректный URL',
+        security: true
+      };
+    }
+
+    try {
+      const fileName = this.generateSafeFilename(resource, targetFolder);
+      const filePath = path.join(this.projectPath, targetFolder, fileName);
+
+      const result = await this.downloadService.downloadFile(resource.fullUrl, filePath);
+
+      return {
+        success: true,
+        originalUrl: resource.fullUrl,
+        localPath: path.join(targetFolder, fileName),
+        size: result.size,
+        type: result.type,
+        security: true
+      };
+
+    } catch (error) {
+      const isSecurityError = error.message.includes('не разрешено') ||
+        error.message.includes('заблокированные') ||
+        error.message.includes('превышает');
+
+      if (isSecurityError) {
+        this.stats.securityBlocks++;
+      }
+
+      return {
+        success: false,
+        originalUrl: resource.fullUrl,
+        error: error.message,
+        security: isSecurityError
+      };
+    }
+  }
+
+  /**
    * Скачивает и сохраняет скрипты
    */
   async downloadScripts(scripts) {
     const results = [];
 
     for (const script of scripts) {
-      if (script.fullUrl && this.isDownloadableUrl(script.fullUrl)) {
-        try {
-          const fileName = this.generateScriptFilename(script);
-          const filePath = path.join(this.projectPath, 'js', fileName);
+      const result = await this.downloadResource(script, 'js', 'script');
 
-          await this.downloadService.downloadFile(script.fullUrl, filePath);
-
-          results.push({
-            originalUrl: script.fullUrl,
-            localPath: path.join('js', fileName),
-            success: true
-          });
-
-          this.stats.scriptsDownloaded++;
-
-        } catch (error) {
-          results.push({
-            originalUrl: script.fullUrl,
-            error: error.message,
-            success: false
-          });
-          this.stats.errors++;
-        }
+      if (result.success) {
+        this.stats.scriptsDownloaded++;
+      } else if (!result.security) {
+        this.stats.errors++;
       }
+
+      results.push(result);
     }
 
     return results;
@@ -96,112 +137,124 @@ export class ProjectBuilder {
     const results = [];
 
     for (const style of styles) {
-      if (style.fullUrl && this.isDownloadableUrl(style.fullUrl)) {
-        try {
-          const fileName = this.generateStyleFilename(style);
-          const filePath = path.join(this.projectPath, 'css', fileName);
+      const result = await this.downloadResource(style, 'css', 'style');
 
-          await this.downloadService.downloadFile(style.fullUrl, filePath);
-
-          results.push({
-            originalUrl: style.fullUrl,
-            localPath: path.join('css', fileName),
-            success: true
-          });
-
-          this.stats.stylesDownloaded++;
-
-        } catch (error) {
-          results.push({
-            originalUrl: style.fullUrl,
-            error: error.message,
-            success: false
-          });
-          this.stats.errors++;
-        }
+      if (result.success) {
+        this.stats.stylesDownloaded++;
+      } else if (!result.security) {
+        this.stats.errors++;
       }
+
+      results.push(result);
     }
 
     return results;
   }
 
   /**
- * Скачивает и сохраняет изображения
- */
+   * Скачивает и сохраняет изображения
+   */
   async downloadImages(images) {
     const results = [];
 
     for (const image of images) {
-      if (image.fullUrl && this.isDownloadableUrl(image.fullUrl)) {
-        try {
-          const fileName = this.generateImageFilename(image);
-          const filePath = path.join(this.projectPath, 'images', fileName);
+      const result = await this.downloadResource(image, 'images', 'image');
 
-          await this.downloadService.downloadFile(image.fullUrl, filePath);
-
-          results.push({
-            originalUrl: image.fullUrl,
-            localPath: path.join('images', fileName),
-            alt: image.alt,
-            success: true
-          });
-
-          this.stats.imagesDownloaded++;
-
-        } catch (error) {
-          results.push({
-            originalUrl: image.fullUrl,
-            error: error.message,
-            success: false
-          });
-          this.stats.errors++;
-        }
+      if (result.success) {
+        this.stats.imagesDownloaded++;
+      } else if (!result.security) {
+        this.stats.errors++;
       }
+
+      results.push(result);
     }
 
     return results;
   }
 
   /**
- * Генерирует имя файла для изображения
- */
-  generateImageFilename(image) {
-    if (image.src) {
-      const urlParts = image.src.split('/');
-      let originalName = urlParts[urlParts.length - 1];
+   * 🆕 Скачивает другие ресурсы (шрифты, медиа и т.д.)
+   */
+  async downloadOtherResources(resources, resourceType = 'other') {
+    const results = [];
 
-      // Если в имени файла нет расширения, добавляем .jpg по умолчанию
-      if (originalName && !originalName.includes('.')) {
-        originalName += '.jpg';
+    for (const resource of resources) {
+      let targetFolder = 'data';
+
+      // Определяем папку назначения по типу ресурса
+      if (resourceType === 'font') targetFolder = 'fonts';
+      if (resourceType === 'media') targetFolder = 'media';
+
+      const result = await this.downloadResource(resource, targetFolder, resourceType);
+
+      if (result.success) {
+        this.stats.otherFilesDownloaded++;
+      } else if (!result.security) {
+        this.stats.errors++;
       }
 
-      return originalName || `image_${image.index}.jpg`;
+      results.push(result);
     }
-    return `image_${image.index}.jpg`;
+
+    return results;
   }
 
   /**
-   * Генерирует имя файла для скрипта
+   * Генерирует безопасное имя файла
    */
-  generateScriptFilename(script) {
-    if (script.src) {
-      const urlParts = script.src.split('/');
-      const originalName = urlParts[urlParts.length - 1];
-      return originalName || `script_${script.index}.js`;
+  generateSafeFilename(resource, targetFolder) {
+    let originalName = '';
+
+    if (resource.src) {
+      const urlParts = resource.src.split('/');
+      originalName = urlParts[urlParts.length - 1];
+    } else if (resource.href) {
+      const urlParts = resource.href.split('/');
+      originalName = urlParts[urlParts.length - 1];
     }
-    return `script_${script.index}.js`;
+
+    // Очищаем имя файла от потенциально опасных символов
+    if (originalName) {
+      originalName = originalName
+        .replace(/[^a-zA-Z0-9._-]/g, '_')
+        .replace(/_{2,}/g, '_')
+        .replace(/^_|_$/g, '');
+    }
+
+    // Если имя файла небезопасно или отсутствует, генерируем новое
+    if (!originalName || originalName.length > 255) {
+      const extension = this.getFileExtension(resource, targetFolder);
+      originalName = `${targetFolder}_${resource.index}${extension}`;
+    }
+
+    return originalName;
   }
 
   /**
-   * Генерирует имя файла для стиля
+   * Определяет расширение файла на основе типа ресурса и URL
    */
-  generateStyleFilename(style) {
-    if (style.href) {
-      const urlParts = style.href.split('/');
-      const originalName = urlParts[urlParts.length - 1];
-      return originalName || `style_${style.index}.css`;
+  getFileExtension(resource, targetFolder) {
+    // Пытаемся определить расширение из URL
+    if (resource.src || resource.href) {
+      const url = resource.src || resource.href;
+      const extension = path.extname(new URL(url, 'http://localhost').pathname);
+
+      if (extension && extension.length < 10) { // Защита от длинных расширений
+        return extension.toLowerCase();
+      }
     }
-    return `style_${style.index}.css`;
+
+    // Расширения по умолчанию для разных типов ресурсов
+    const defaultExtensions = {
+      'js': '.js',
+      'css': '.css',
+      'images': '.jpg',
+      'fonts': '.woff2',
+      'media': '.mp4',
+      'data': '.bin'
+    };
+
+    return defaultExtensions[targetFolder] || '.bin';
   }
 
   /**
@@ -221,6 +274,11 @@ export class ProjectBuilder {
     return {
       projectPath: this.projectPath,
       stats: { ...this.stats },
+      security: {
+        maxFileSize: this.downloadService.maxFileSize,
+        allowedExtensions: this.downloadService.allowedExtensions.length,
+        blockedPatterns: this.downloadService.blockedPatterns.length
+      },
       timestamp: new Date().toISOString()
     };
   }
@@ -233,7 +291,9 @@ export class ProjectBuilder {
       scriptsDownloaded: 0,
       stylesDownloaded: 0,
       imagesDownloaded: 0,
-      errors: 0
+      otherFilesDownloaded: 0,
+      errors: 0,
+      securityBlocks: 0
     };
   }
 }

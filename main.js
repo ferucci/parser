@@ -30,7 +30,7 @@ async function main() {
   });
 
   // Добавляем URL в очередь
-  parser.addToQueue('https://usoltev.ru/');
+  parser.addToQueue('https://ls-lighting.ru/');
   // parser.addToQueue('https://github.com');
 
   // Запускаем обработку очереди
